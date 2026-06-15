@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>我的个人简介 | 粒子光效背景</title>
+    <style>
+        /* 重置内外边距，保证 canvas 全屏 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+            color: white;  /* 文字默认白色便于在黑色背景上显示 */
+        }
+
+        /* Canvas 粒子背景层 */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 0;
+            background-color: #000000; /* 纯黑底 */
+        }
+
+        /* 所有前景内容放在这个容器里，高于 canvas */
+        .content {
+            position: relative;
+            z-index: 10;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            background-color: rgba(0, 0, 0, 0.65); /* 半透明黑色背景让文字更易读 */
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+            margin-top: 5vh;
+            margin-bottom: 5vh;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        /* 保持原有样式，并微调文字颜色 */
+        h1 {
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        h2 {
+            color: #ffdd99;
+            border-left: 5px solid #ffaa66;
+            padding-left: 15px;
+            margin: 30px 0 20px 0;
+        }
+
+        .public-section {
+            text-align: center;
+        }
+
+        .avatar img {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ffaa66;
+            margin: 20px auto;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+
+        .bio {
+            font-size: 1.2em;
+            line-height: 1.6;
+            color: #f0f0f0;
+            max-width: 700px;
+            margin: 0 auto 20px;
+        }
+
+        .login-area {
+            background: rgba(30,30,40,0.8);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            margin-top: 30px;
+            backdrop-filter: blur(4px);
+        }
+
+        .login-area input {
+            padding: 12px;
+            width: 250px;
+            border: 1px solid #ffaa66;
+            border-radius: 30px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            outline: none;
+        }
+
+        .login-area input::placeholder {
+            color: #ddd;
+        }
+
+        .login-area button {
+            padding: 12px 28px;
+            background: #ff884d;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            margin-left: 10px;
+        }
+
+        .login-area button:hover {
+            background: #ff6622;
+        }
+
+        #errorMsg {
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        a {
+            color: #ffaa66;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        hr {
+            border-color: rgba(255,255,255,0.2);
+            margin: 20px 0;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .content {
+                margin: 20px;
+                padding: 20px;
+            }
+            .login-area input {
+                width: 70%;
+                margin-bottom: 10px;
+            }
+            .login-area button {
+                margin-left: 0;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas 粒子背景 -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- 前景内容（你的简介 + 登录） -->
+    <div class="content">
+        <div class="public-section">
+            <h1>✨ 你好，我是 KKY ✨</h1>
+            <div class="avatar">
+                <!-- 头像图片：请将 avatar.jpg 放在同一目录下，若没有则会显示占位符 -->
+                <img src="avatar.jpg" alt="头像" onerror="this.src='https://via.placeholder.com/150?text=Avatar'">
+            </div>
+            <p class="bio">🌟 一个热爱生活、喜欢探索新事物的人。这个网站记录了我的部分生活和想法。🌟</p>
+            <p>📫 联系我：<a href="kky0001@email.com">your@email.com</a></p>
+            <hr>
+        </div>
+
+        <div class="login-area">
+            <h2>🔐 私密空间入口</h2>
+            <p>输入密码后可以查看照片库、灵魂伴侣和职业规划。</p>
+            <input type="password" id="passwordInput" placeholder="请输入密码">
+            <button id="loginBtn">进入</button>
+            <div id="errorMsg"></div>
+        </div>
+    </div>
+
+    <script>
+        // ========================
+        // 粒子系统核心逻辑
+        // ========================
+        const canvas = document.getElementById('particleCanvas');
+        let ctx = canvas.getContext('2d');
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+
+        // 粒子参数
+        const PARTICLE_COUNT = 200;        // 粒子数量（可根据性能调整 150~300）
+        const MAX_SPEED = 1.2;             // 最大速度
+        const MOUSE_RADIUS = 120;           // 鼠标影响半径
+        const MOUSE_FORCE = 0.8;            // 鼠标吸引力强度
+        const EDGE_BOUNCE = 0.9;            // 边缘碰撞弹性系数（反弹保留能量）
+        const FRICTION = 0.98;              // 空气摩擦，让运动平滑
+
+        let particles = [];
+        let mouseX = width/2, mouseY = height/2;
+        let mousePresent = false;
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, vx, vy, size, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.color = color;
+                this.originalColor = color;
+            }
+
+            // 更新位置和速度
+            update() {
+                // 应用摩擦力
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                // 鼠标吸引力：如果鼠标存在，计算从粒子指向鼠标的向量，使其加速靠近
+                if (mousePresent) {
+                    let dx = mouseX - this.x;
+                    let dy = mouseY - this.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < MOUSE_RADIUS && dist > 0.5) {
+                        let force = MOUSE_FORCE * (1 - dist / MOUSE_RADIUS); // 越近力越大
+                        let angle = Math.atan2(dy, dx);
+                        let ax = Math.cos(angle) * force;
+                        let ay = Math.sin(angle) * force;
+                        this.vx += ax;
+                        this.vy += ay;
+                        // 速度限制
+                        let spd = Math.hypot(this.vx, this.vy);
+                        if (spd > MAX_SPEED) {
+                            this.vx = (this.vx / spd) * MAX_SPEED;
+                            this.vy = (this.vy / spd) * MAX_SPEED;
+                        }
+                    }
+                }
+
+                // 更新位置
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 边界碰撞检测（弹性碰撞，并且有位置修正）
+                if (this.x - this.size < 0) {
+                    this.x = this.size;
+                    this.vx = -this.vx * EDGE_BOUNCE;
+                }
+                if (this.x + this.size > width) {
+                    this.x = width - this.size;
+                    this.vx = -this.vx * EDGE_BOUNCE;
+                }
+                if (this.y - this.size < 0) {
+                    this.y = this.size;
+                    this.vy = -this.vy * EDGE_BOUNCE;
+                }
+                if (this.y + this.size > height) {
+                    this.y = height - this.size;
+                    this.vy = -this.vy * EDGE_BOUNCE;
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                // 添加光晕效果
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0; // 重置避免影响其他
+            }
+        }
+
+        // 生成随机颜色 (暖色系光点：橙、黄、白、浅红)
+        function randomParticleColor() {
+            const hue = 30 + Math.random() * 30; // 30~60 橙黄色调
+            const sat = 70 + Math.random() * 30;
+            const lit = 60 + Math.random() * 40;
+            return `hsl(${hue}, ${sat}%, ${lit}%)`;
+        }
+
+        // 初始化粒子
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                let x = Math.random() * width;
+                let y = Math.random() * height;
+                let vx = (Math.random() - 0.5) * 0.8;
+                let vy = (Math.random() - 0.5) * 0.8;
+                let size = 2 + Math.random() * 4;   // 半径 2~6px
+                let color = randomParticleColor();
+                particles.push(new Particle(x, y, vx, vy, size, color));
+            }
+        }
+
+        // 动画循环
+        function animate() {
+            if (!ctx) return;
+            // 清空画布（带透明效果保留拖尾感，若要完全清晰则用 fillRect，但拖尾更炫酷）
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // 透明度0.3制造拖尾光轨效果
+            ctx.fillRect(0, 0, width, height);
+            
+            // 更新并绘制每个粒子
+            for (let p of particles) {
+                p.update();
+                p.draw(ctx);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // 鼠标移动事件
+        function onMouseMove(e) {
+            mousePresent = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        }
+
+        // 鼠标离开窗口时，重置鼠标影响力（停止吸引）
+        function onMouseLeave() {
+            mousePresent = false;
+        }
+
+        // 触摸屏支持
+        function onTouchMove(e) {
+            e.preventDefault();
+            mousePresent = true;
+            if (e.touches.length) {
+                mouseX = e.touches[0].clientX;
+                mouseY = e.touches[0].clientY;
+            }
+        }
+        function onTouchEnd() {
+            mousePresent = false;
+        }
+
+        // 窗口大小调整时，重置画布尺寸和粒子位置（避免粒子脱离边界）
+        function onResize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            // 重新初始化粒子，确保分布在新尺寸内
+            initParticles();
+        }
+
+        // 启动粒子系统
+        function startParticleSystem() {
+            onResize(); // 设置宽高并初始化粒子
+            window.addEventListener('resize', onResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseleave', onMouseLeave);
+            // 触摸事件（移动端）
+            window.addEventListener('touchmove', onTouchMove);
+            window.addEventListener('touchend', onTouchEnd);
+            animate();
+        }
+
+        // ========================
+        // 原有的密码登录逻辑
+        // ========================
+        const SECRET_PASSWORD = "kky666";   // ← 请修改成你自己的密码
+
+        function isLoggedIn() {
+            return sessionStorage.getItem("loggedIn") === "true";
+        }
+
+        function login(password) {
+            if (password === SECRET_PASSWORD) {
+                sessionStorage.setItem("loggedIn", "true");
+                return true;
+            }
+            return false;
+        }
+
+        // 处理登录按钮
+        const loginBtn = document.getElementById('loginBtn');
+        const passwordInput = document.getElementById('passwordInput');
+        const errorMsgDiv = document.getElementById('errorMsg');
+
+        if (loginBtn) {
+            loginBtn.addEventListener('click', function() {
+                const pwd = passwordInput.value;
+                if (login(pwd)) {
+                    window.location.href = "secret.html";  // 请确保你有 secret.html 文件
+                } else {
+                    errorMsgDiv.innerText = "密码错误，请重试";
+                    errorMsgDiv.style.color = "#ffaa66";
+                }
+            });
+        }
+
+        // 启动特效（必须在 DOM 加载完成后）
+        window.addEventListener('DOMContentLoaded', () => {
+            startParticleSystem();
+        });
+    </script>
+</body>
+</html>
