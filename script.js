@@ -19,7 +19,7 @@ function login(password) {
 // 退出登录
 function logout() {
     sessionStorage.removeItem("loggedIn");
-    window.location.href = "back.html";  // 跳回首页
+    window.location.href = "index.html";  // 跳回首页
 }
 
 // 页面加载时的逻辑
@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function() {
     if (logoutBtn) {
         // 检查登录状态，未登录则跳回首页
         if (!isLoggedIn()) {
-            window.location.href = "back.html";
+            window.location.href = "index.html";
         }
         
         // 退出按钮
